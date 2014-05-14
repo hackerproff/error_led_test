@@ -17,13 +17,4 @@
 
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof(x[0]))
 
-
 #define barrier() do { __asm__ __volatile__ (""); } while (0)
-
-#define		LED_PORT	GPIOB
-#define		LED_PIN		GPIO1
-
-inline void toggle_led(void)
-{
-	gpio_toggle(LED_PORT, LED_PIN);
-}

@@ -18,29 +18,49 @@ PB12	ERR_LED_7
 
 ===========================================================================*/
 
-#include "common.h"
+#define barrier() do { __asm__ __volatile__ (""); } while (0)
 
-enum errled
-{
-	ERLED_0 = GPIO4,
-	ERLED_1 = GPIO5,
-	ERLED_2 = GPIO7,
-	ERLED_3 = GPIO0,
-	ERLED_4 = GPIO2,
-	ERLED_5 = GPIO10,
-	ERLED_6 = GPIO11,
-	ERLED_7 = GPIO12,
+#include <libopencm3/cm3/scb.h>
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/cm3/cortex.h>
+
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/flash.h>
+#include <libopencm3/stm32/exti.h>
+#include <libopencm3/stm32/timer.h>
+
+#include <libopencm3/cm3/systick.h>
+
+static uint32_t erledpin[] = {
+	GPIO4,
+	GPIO5,
+	GPIO7,
+	GPIO0,
+	GPIO2,
+	GPIO10,
+	GPIO11,
+	GPIO12,
 };
 
-static inline void toogle_led(enum errled in)
+static uint32_t erledport[] = {
+	GPIOA,
+	GPIOA,
+	GPIOA,
+	GPIOB,
+	GPIOB,
+	GPIOB,
+	GPIOB,
+	GPIOB,
+};
+
+void sys_tick_handler(void)  // 1 KHz
 {
-	switch (in) {
-		case ERLED_0: gpio_toggle(GPIOA, in); return;
-		case ERLED_1: gpio_toggle(GPIOA, in); return;
-		case ERLED_2: gpio_toggle(GPIOA, in); return;
-		default:      gpio_toggle(GPIOB, in);      return;
-	}
-}
+	static uint8_t i = 0;
+	gpio_toggle(erledport[i], erledpin[i]);
+	++i;
+	if (i > 7) i = 0;
+} 
 
 int main(void)
 {
@@ -52,25 +72,19 @@ int main(void)
 	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPAEN);
 	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPBEN);
 	
-	gpio_clear(GPIOA, ERLED_0);
-	gpio_clear(GPIOA, ERLED_1);
-	gpio_clear(GPIOA, ERLED_2);
-
-	gpio_clear(GPIOB, ERLED_3);
-	gpio_clear(GPIOB, ERLED_4);
-	gpio_clear(GPIOB, ERLED_5);
-	gpio_clear(GPIOB, ERLED_6);
-	gpio_clear(GPIOB, ERLED_7);
-
-
-
-	gpio_set_mode(LED_PORT, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, LED_PIN);
+	systick_set_clocksource(STK_CTRL_CLKSOURCE_AHB);
+	systick_set_reload(14399999); //24 bit reload value. 16777216
+	systick_interrupt_enable();
 	
+	for (uint8_t i = 0; i < 8; ++i) {
+		gpio_clear(erledport[i], erledpin[i]);
+		gpio_set_mode(erledport[i], GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, erledpin[i] );
+	}
 	
-
-
-
+	systick_counter_enable();
+	
 	while ( 1 )	{
+		barrier();
 	}
 	return 0;
 }
